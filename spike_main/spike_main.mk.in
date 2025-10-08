@@ -5,6 +5,7 @@ spike_main_subproject_deps = \
 	disasm \
 	riscv \
     flexicas \
+	
 spike_main_install_prog_srcs = \
 	spike.cc \
 	spike-log-parser.cc \
