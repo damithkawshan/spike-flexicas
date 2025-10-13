@@ -1,3 +1,4 @@
 [submodule "cache"]
-	path = flexicas
-	url = ../FlexiCAS
+        path = flexicas
+        url = git@github.com:damithkawshan/FlexiCAS.git
+        branch = cache_exploration
