@@ -7,13 +7,45 @@ set -e  # Exit on error
 
 # Configuration
 REPO_ROOT="/home/damith/Research/repos/spike-flexicas"
-TEST_DIR="${REPO_ROOT}/flexicas/usydTests/lchain_clean"
-TEST_PROGRAM="lchain"
-OUTPUT_DIR="${REPO_ROOT}/cache_exploration/results"
+# TEST_DIR="${REPO_ROOT}/usydTests/lchain_clean"
+# TEST_PROGRAM="lchain"
+# TEST_DIR="${REPO_ROOT}/usydTests"
+# TEST_PROGRAM="hello_world"
+TEST_PROGRAM=$1
+
+TEST_DIR="/home/damith/Research/repos/benchmarks/beebs/src/${TEST_PROGRAM}"
+
+OUTPUT_DIR=$2
+# If OUTPUT_DIR is not provided, use default
+if [ -z "${OUTPUT_DIR}" ]; then
+    OUTPUT_DIR="${REPO_ROOT}/cache_exploration/results/"
+fi
+
+OUTPUT_DIR="${OUTPUT_DIR}/${TEST_PROGRAM}"
+
+#create output directory if it doesn't exist
+mkdir -p "${OUTPUT_DIR}"    
+
+CACHE_MODEL="${REPO_ROOT}/flexicas/spike-cache_set_util.cc"
 
 echo "=========================================="
 echo "Set Utilization Monitoring Test"
 echo "=========================================="
+echo ""
+
+# echo Test program and directory
+echo "Test program: ${TEST_PROGRAM}"
+echo "Test directory: ${TEST_DIR}"
+echo ""
+
+# Create output directory
+mkdir -p "${OUTPUT_DIR}"
+echo "Output directory: ${OUTPUT_DIR}"
+echo ""
+
+#COPY CACHE MODEL as spike-cache.cc
+cp "${CACHE_MODEL}" "${REPO_ROOT}/flexicas/spike-cache.cc"
+echo "Using cache model: $(basename "${CACHE_MODEL}")"
 echo ""
 
 # Check conda environment
@@ -70,42 +102,18 @@ spike pk "${TEST_PROGRAM}" > "${OUTPUT_FILE}" 2>&1
 echo "  Test completed!"
 echo ""
 
-# Step 4: Display results
-echo "=========================================="
-echo "Results Summary"
-echo "=========================================="
-echo ""
-
-# Extract and display L1I set utilization
-echo "L1 Instruction Cache Set Utilization:"
-grep -A 2 "L1 Instruction Cache Set Utilization" "${OUTPUT_FILE}" | tail -2 || echo "  (see full output)"
-
-echo ""
-
-# Extract and display L1D set utilization
-echo "L1 Data Cache Set Utilization:"
-grep -A 2 "L1 Data Cache Set Utilization" "${OUTPUT_FILE}" | tail -2 || echo "  (see full output)"
-
-echo ""
-
-# Extract and display L2 set utilization
-echo "L2 Cache Set Utilization:"
-grep -A 2 "L2 Cache Set Utilization" "${OUTPUT_FILE}" | tail -2 || echo "  (see full output)"
-
-echo ""
-echo "=========================================="
-echo "Full output saved to: ${OUTPUT_FILE}"
-echo ""
-
 # Check for CSV files
 if [ -f "${TEST_DIR}/l1i_set_utilization.csv" ]; then
     echo "CSV files generated:"
     ls -lh "${TEST_DIR}"/*_set_utilization.csv 2>/dev/null || true
     echo ""
-    echo "Moving CSV files to results directory..."
-    mv "${TEST_DIR}"/*_set_utilization.csv "${OUTPUT_DIR}/" 2>/dev/null || true
+    echo "Copying CSV files to results directory..."
+    cp "${TEST_DIR}"/*_set_utilization.csv "${OUTPUT_DIR}/" 2>/dev/null || true
+    echo "Cleaning up CSV files from test directory..."
+    rm "${TEST_DIR}"/*_set_utilization.csv 2>/dev/null || true
 fi
 
+echo "All results saved in: ${OUTPUT_DIR}"
 echo "=========================================="
 echo "Test completed successfully!"
 echo "=========================================="
