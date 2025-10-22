@@ -15,6 +15,7 @@ TEST_PROGRAM=$1
 
 TEST_DIR="/home/damith/Research/repos/benchmarks/beebs/src/${TEST_PROGRAM}"
 
+
 OUTPUT_DIR=$2
 # If OUTPUT_DIR is not provided, use default
 if [ -z "${OUTPUT_DIR}" ]; then
@@ -27,6 +28,23 @@ OUTPUT_DIR="${OUTPUT_DIR}/${TEST_PROGRAM}"
 mkdir -p "${OUTPUT_DIR}"    
 
 CACHE_MODEL="${REPO_ROOT}/flexicas/spike-cache_set_util.cc"
+
+#read cache_config.h to get cache parameters
+L1IW=$(grep '#define L1IW' "${REPO_ROOT}/flexicas/cache_config.h" | awk '{print $3}')
+L1WN=$(grep '#define L1WN' "${REPO_ROOT}/flexicas/cache_config.h" | awk '{print $3}')
+L2IW=$(grep '#define L2IW' "${REPO_ROOT}/flexicas/cache_config.h" | awk '{print $3}')
+L2WN=$(grep '#define L2WN' "${REPO_ROOT}/flexicas/cache_config.h" | awk '{print $3}')
+CACHE_LINE_SIZE=$(grep '#define CACHE_LINE_SIZE' "${REPO_ROOT}/flexicas/cache_config.h" | awk '{print $3}')
+
+# Print print cache configuration
+L1_SIZE_KB=$(( (1 << L1IW) * CACHE_LINE_SIZE * L1WN / 1024 ))
+L2_SIZE_KB=$(( (1 << L2IW) * CACHE_LINE_SIZE * L2WN / 1024 ))
+
+echo "Using Cache Configuration:"
+echo "L1 Data Cache:       ${L1_SIZE_KB}KB, ${L1WN}-way set associative"
+echo "L1 Instruction Cache: ${L1_SIZE_KB}KB, ${L1WN}-way set associative"
+echo "L2 Cache:            ${L2_SIZE_KB}KB, ${L2WN}-way set associative"
+echo ""
 
 echo "=========================================="
 echo "Set Utilization Monitoring Test"

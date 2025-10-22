@@ -6,7 +6,66 @@
 # Note: Not using 'set -e' because we handle errors manually for each benchmark
 
 #CONFIG
-CACHE_CONFIG="D16K4W_128K4W"
+
+# Do the math to set cache params
+L1_SIZE_KB=8
+L1_ASSOC=4
+L2_SIZE_KB=128
+L2_ASSOC=4
+CACHE_LINE_SIZE=64 #Assumed constant
+
+# Helper: compute index width (IW) from size (KB), associativity and line size
+# IW = log2((size_bytes) / (line_size_bytes * assoc))
+compute_iw() {
+    local size_kb=$1
+    local assoc=$2
+    local line_size=$3
+    # size in bytes
+    local size_bytes=$(( size_kb * 1024 ))
+    local sets=$(( size_bytes / (line_size * assoc) ))
+    if [ $sets -lt 1 ]; then
+        echo 0
+        return
+    fi
+    # compute floor(log2(sets)) -> IW
+    local iw=0
+    while [ $sets -gt 1 ]; do
+        sets=$(( sets >> 1 ))
+        iw=$(( iw + 1 ))
+    done
+    echo $iw
+}
+
+# Compute parameters
+L1IW=$(compute_iw ${L1_SIZE_KB} ${L1_ASSOC} ${CACHE_LINE_SIZE})
+L1WN=${L1_ASSOC}
+L2IW=$(compute_iw ${L2_SIZE_KB} ${L2_ASSOC} ${CACHE_LINE_SIZE})
+L2WN=${L2_ASSOC}
+
+CACHE_CONFIG="D${L1_SIZE_KB}K${L1WN}W_${L2_SIZE_KB}K${L2WN}W"
+
+# Generate cache_config.h used by flexicas before running benchmarks
+generate_cache_header() {
+    local hdr_path="$REPO_ROOT/flexicas/cache_config.h"
+    cat > "${hdr_path}" <<EOF
+#ifndef FLEXICAS_CACHE_CONFIG_H
+#define FLEXICAS_CACHE_CONFIG_H
+
+#define CACHE_LINE_SIZE ${CACHE_LINE_SIZE}
+
+// L1 configuration
+#define L1IW ${L1IW}
+#define L1WN ${L1WN}
+
+// L2 configuration
+#define L2IW ${L2IW}
+#define L2WN ${L2WN}
+
+#endif // FLEXICAS_CACHE_CONFIG_H
+EOF
+    echo "Generated cache header: ${hdr_path} (L1IW=${L1IW} L1WN=${L1WN} L2IW=${L2IW} L2WN=${L2WN})"
+}
+
 
 # Configuration
 REPO_ROOT="/home/damith/Research/repos/spike-flexicas"
@@ -15,11 +74,22 @@ OUTPUT_DIR="${REPO_ROOT}/cache_exploration/results/beeb_${CACHE_CONFIG}"
 SUMMARY_CSV="${OUTPUT_DIR}/l2_cache_summary_all_benchmarks.csv"
 FAILED_LOG="${OUTPUT_DIR}/failed_benchmarks.log"
 
+# Generate the cache header now so builds use the correct config
+generate_cache_header
+
 echo "=========================================="
 echo "BEEBS Benchmarks L2 Cache Analysis"
 echo "=========================================="
 echo ""
 echo "Start time: $(date)"
+echo ""
+
+#print cache configuration
+echo "Using Cache Configuration:"
+echo "Cache Line Size:     ${CACHE_LINE_SIZE} bytes"
+echo "L1 Data Cache:       ${L1_SIZE_KB}KB, ${L1_ASSOC}-way set associative"
+echo "L1 Instruction Cache: ${L1_SIZE_KB}KB, ${L1_ASSOC}-way set associative"
+echo "L2 Cache:            ${L2_SIZE_KB}KB, ${L2_ASSOC}-way set associative"
 echo ""
 
 SCRIPT_START_TIME=$(date +%s)
@@ -29,13 +99,13 @@ mkdir -p "${OUTPUT_DIR}"
 
 # Known-bad benchmarks to skip (update this list as needed)
 SKIP_BENCHMARKS=(
-    "crc32"
-    "duff"
-    "lcdnum"
-    "ctl-string"
-    "frac"
-    "insertsort"
-    "sglib-arrayquicksort"
+    # "crc32"
+    # "duff"
+    # "lcdnum"
+    # "ctl-string"
+    # "frac"
+    "nettle-md5"
+    # "sglib-arrayquicksort"
 )
 
 # Initialize CSV file with headers
@@ -68,7 +138,7 @@ echo ""
 for BENCHMARK in ${BENCHMARKS}; do
     CURRENT=$((CURRENT + 1))
 
-    if [ ${CURRENT} -lt 6 ]; then
+    if [ ${CURRENT} -lt 45 ]; then
         # For first 6 benchmarks, just print a message and skip (for testing)
         echo "=========================================="
         echo "[${CURRENT}/${TOTAL_BENCHMARKS}] Skipping (test mode): ${BENCHMARK}"
