@@ -14,6 +14,8 @@
 #include <stdexcept>
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
+#include <unistd.h>
 #include <vector>
 #include <string>
 #include <memory>
@@ -92,6 +94,16 @@ static void suggest_help()
 {
   fprintf(stderr, "Try 'spike --help' for more information.\n");
   exit(1);
+}
+
+// Print message and exit when interrupted (Ctrl+C) or terminated.
+// Uses async-signal-safe write(), then calls std::exit so atexit handlers run.
+static void spike_sig_handler(int signo)
+{
+  const char msg[] = "spike: exiting (interrupt)\n";
+  flexicas::exit();
+  (void)write(STDERR_FILENO, msg, sizeof(msg) - 1);
+  std::exit(128 + signo);
 }
 
 static bool check_file_exists(const char *fileName)
@@ -541,6 +553,11 @@ int main(int argc, char** argv)
   }
 
   flexicas::init(nprocs(), pfc_log_prefix);
+  // ensure flexicas::exit() runs on normal termination
+  std::atexit(&flexicas::exit);
+
+  signal(SIGINT, spike_sig_handler);
+  signal(SIGTERM, spike_sig_handler);
 
   for (size_t i = 0; i < cfg.nprocs(); i++)
   {
@@ -558,6 +575,6 @@ int main(int argc, char** argv)
   for (auto& mem : mems)
     delete mem.second;
 
-  flexicas::exit();
+  
   return return_code;
 }
