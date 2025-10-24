@@ -8,10 +8,10 @@
 #CONFIG
 
 # Do the math to set cache params
-L1_SIZE_KB=8
+L1_SIZE_KB=32
 L1_ASSOC=4
-L2_SIZE_KB=128
-L2_ASSOC=4
+L2_SIZE_KB=256
+L2_ASSOC=8
 CACHE_LINE_SIZE=64 #Assumed constant
 
 # Helper: compute index width (IW) from size (KB), associativity and line size
