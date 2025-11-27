@@ -5,6 +5,69 @@
 
 set -e  # Exit on error
 
+#CONFIG
+
+# Do the math to set cache params
+L1_SIZE_KB=32
+L1_ASSOC=8
+L2_SIZE_KB=512
+L2_ASSOC=8
+CACHE_LINE_SIZE=64 #Assumed constant
+
+# Helper: compute index width (IW) from size (KB), associativity and line size
+# IW = log2((size_bytes) / (line_size_bytes * assoc))
+compute_iw() {
+    local size_kb=$1
+    local assoc=$2
+    local line_size=$3
+    # size in bytes
+    local size_bytes=$(( size_kb * 1024 ))
+    local sets=$(( size_bytes / (line_size * assoc) ))
+    if [ $sets -lt 1 ]; then
+        echo 0
+        return
+    fi
+    # compute floor(log2(sets)) -> IW
+    local iw=0
+    while [ $sets -gt 1 ]; do
+        sets=$(( sets >> 1 ))
+        iw=$(( iw + 1 ))
+    done
+    echo $iw
+}
+
+# Compute parameters
+L1IW=$(compute_iw ${L1_SIZE_KB} ${L1_ASSOC} ${CACHE_LINE_SIZE})
+L1WN=${L1_ASSOC}
+L2IW=$(compute_iw ${L2_SIZE_KB} ${L2_ASSOC} ${CACHE_LINE_SIZE})
+L2WN=${L2_ASSOC}
+
+CACHE_CONFIG="D${L1_SIZE_KB}K${L1WN}W_${L2_SIZE_KB}K${L2WN}W"
+
+# Generate cache_config.h used by flexicas before running benchmarks
+generate_cache_header() {
+    local hdr_path="$REPO_ROOT/flexicas/cache_config.h"
+    cat > "${hdr_path}" <<EOF
+#ifndef FLEXICAS_CACHE_CONFIG_H
+#define FLEXICAS_CACHE_CONFIG_H
+
+#define CACHE_LINE_SIZE ${CACHE_LINE_SIZE}
+
+// L1 configuration
+#define L1IW ${L1IW}
+#define L1WN ${L1WN}
+
+// L2 configuration
+#define L2IW ${L2IW}
+#define L2WN ${L2WN}
+
+#endif // FLEXICAS_CACHE_CONFIG_H
+EOF
+    echo "Generated cache header: ${hdr_path} (L1IW=${L1IW} L1WN=${L1WN} L2IW=${L2IW} L2WN=${L2WN})"
+}
+
+
+
 # Configuration
 REPO_ROOT="/home/damith/Research/repos/spike-flexicas"
 # TEST_DIR="${REPO_ROOT}/usydTests/lchain_clean"
@@ -12,6 +75,8 @@ REPO_ROOT="/home/damith/Research/repos/spike-flexicas"
 # TEST_DIR="${REPO_ROOT}/usydTests"
 # TEST_PROGRAM="hello_world"
 TEST_PROGRAM=$1
+
+generate_cache_header
 
 TEST_DIR="/home/damith/Research/repos/benchmarks/beebs/src/${TEST_PROGRAM}"
 
