@@ -9,10 +9,15 @@
 
 # Do the math to set cache params
 L1_SIZE_KB=32
-L1_ASSOC=4
+L1_ASSOC=8
 L2_SIZE_KB=256
 L2_ASSOC=8
 CACHE_LINE_SIZE=64 #Assumed constant
+
+# print as an error in red color font and exit
+echo -e "\e[31mNEED TO MODIFY THIS SCRIPT AS LOT HAS BEEN CHANGED IN FLEXICAS BUILD PROCESS :: REFER TEST SET UTILIZATION SCRIPT\e[0m"
+echo -e "\e[31mEXITING...\e[0m"
+exit 1
 
 # Helper: compute index width (IW) from size (KB), associativity and line size
 # IW = log2((size_bytes) / (line_size_bytes * assoc))

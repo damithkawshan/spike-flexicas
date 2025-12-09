@@ -8,11 +8,12 @@ set -e  # Exit on error
 #CONFIG
 
 # Do the math to set cache params
-L1_SIZE_KB=32
+L1_SIZE_KB=8
 L1_ASSOC=8
-L2_SIZE_KB=512
+L2_SIZE_KB=32
 L2_ASSOC=8
-CACHE_LINE_SIZE=64 #Assumed constant
+CACHE_LINE_SIZE=32 #Assumed constant
+CACHE_TYPE=SB #SB,DB
 
 # Helper: compute index width (IW) from size (KB), associativity and line size
 # IW = log2((size_bytes) / (line_size_bytes * assoc))
@@ -61,9 +62,43 @@ generate_cache_header() {
 #define L2IW ${L2IW}
 #define L2WN ${L2WN}
 
+enum CacheTypeValue {
+	BL = 0,
+	DB = 2,
+	SB = 1
+};
+
+#define CACHE_TYPE_BL 0
+#define CACHE_TYPE_DB 2
+#define CACHE_TYPE_SB 1
+
+#define CACHE_TYPE CACHE_TYPE_${CACHE_TYPE}
+
+static_assert(static_cast<int>(CacheTypeValue::BL) == CACHE_TYPE_BL, "Cache type macro mismatch");
+static_assert(static_cast<int>(CacheTypeValue::DB) == CACHE_TYPE_DB, "Cache type macro mismatch");
+static_assert(static_cast<int>(CacheTypeValue::SB) == CACHE_TYPE_SB, "Cache type macro mismatch");
+
+static inline constexpr CacheTypeValue cache_type_value() {
+	return static_cast<CacheTypeValue>(CACHE_TYPE);
+}
+
+static inline constexpr const char* cache_type_suffix() {
+	switch (cache_type_value()) {
+	case BL:
+		return "BL";
+	case DB:
+		return "DB";
+	case SB:
+		return "SB";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+
 #endif // FLEXICAS_CACHE_CONFIG_H
 EOF
-    echo "Generated cache header: ${hdr_path} (L1IW=${L1IW} L1WN=${L1WN} L2IW=${L2IW} L2WN=${L2WN})"
+    echo "Generated cache header: ${hdr_path} (L1IW=${L1IW} L1WN=${L1WN} L2IW=${L2IW} L2WN=${L2WN} CACHE_TYPE=${CACHE_TYPE})"
 }
 
 
@@ -106,6 +141,7 @@ L1_SIZE_KB=$(( (1 << L1IW) * CACHE_LINE_SIZE * L1WN / 1024 ))
 L2_SIZE_KB=$(( (1 << L2IW) * CACHE_LINE_SIZE * L2WN / 1024 ))
 
 echo "Using Cache Configuration:"
+echo "with CACHE_TYPE=${CACHE_TYPE} Cache"
 echo "L1 Data Cache:       ${L1_SIZE_KB}KB, ${L1WN}-way set associative"
 echo "L1 Instruction Cache: ${L1_SIZE_KB}KB, ${L1WN}-way set associative"
 echo "L2 Cache:            ${L2_SIZE_KB}KB, ${L2WN}-way set associative"
@@ -179,22 +215,16 @@ echo ""
 echo "Step 3: Running test program with set utilization monitoring..."
 cd "${TEST_DIR}"
 
-OUTPUT_FILE="${OUTPUT_DIR}/set_utilization_test.txt"
+OUTPUT_FILE="${OUTPUT_DIR}/${CACHE_TYPE}_set_utilization_test.txt"
 spike pk "${TEST_PROGRAM}" > "${OUTPUT_FILE}" 2>&1
 
 echo "  Test completed!"
 echo ""
 
-# Check for CSV files
-if [ -f "${TEST_DIR}/l1i_set_utilization.csv" ]; then
-    echo "CSV files generated:"
-    ls -lh "${TEST_DIR}"/*_set_utilization.csv 2>/dev/null || true
-    echo ""
-    echo "Copying CSV files to results directory..."
-    cp "${TEST_DIR}"/*_set_utilization.csv "${OUTPUT_DIR}/" 2>/dev/null || true
-    echo "Cleaning up CSV files from test directory..."
-    rm "${TEST_DIR}"/*_set_utilization.csv 2>/dev/null || true
-fi
+#move all log and csv files to output directory
+mv *.log "${OUTPUT_DIR}/" 2>/dev/null || true
+mv *.csv "${OUTPUT_DIR}/" 2>/dev/null || true
+
 
 echo "All results saved in: ${OUTPUT_DIR}"
 echo "=========================================="
