@@ -3,6 +3,9 @@
 # Script to test cache set utilization tracking
 # This will rebuild spike with set utilization monitoring and run a test
 
+#spike linux command
+# /root/utils/flexicas_start mybenchmark && cd /root/620.omnetpp_s && ./omnetpp_s_base.riscv-64 -c General -r 0 && /root/utils/flexicas_stop
+
 set -e  # Exit on error
 
 #CONFIG
@@ -10,13 +13,15 @@ set -e  # Exit on error
 # Do the math to set cache params
 L1_SIZE_KB=8
 L1_ASSOC=8
-L2_SIZE_KB=32
-L2_ASSOC=8
-CACHE_LINE_SIZE=32 #Assumed constant
+
 CACHE_TYPE=SB #SB,DB
+L2_SIZE_KB=16
+L2_ASSOC=8
+
 
 # Helper: compute index width (IW) from size (KB), associativity and line size
 # IW = log2((size_bytes) / (line_size_bytes * assoc))
+CACHE_LINE_SIZE=64 #Assumed constant
 compute_iw() {
     local size_kb=$1
     local assoc=$2
