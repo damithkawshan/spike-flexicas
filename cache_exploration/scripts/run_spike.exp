@@ -1,0 +1,43 @@
+#!/usr/bin/expect
+
+# Set timeout to infinite so expect doesn't give up during the boot process
+set timeout -1
+
+# 1. Spawn the Spike simulation
+# Note: We use 'expand' or full path because expect doesn't always expand '~' automatically
+spawn spike -m12288 /home/damith/Research/repos/riscv-rss-sdk/build/riscv-pk/bbl
+
+# 2. Wait for the login prompt and send 'root'
+expect "buildroot login:"
+send "root\r"
+
+# 3. Wait for the shell prompt (#)
+expect "# "
+
+# after 5000  ;# Optional: wait an additional 5 seconds to ensure the system is fully ready
+send "cd /root/654.roms_s\r"
+expect "# "
+send "/root/utils/flexicas_start mybenchmark\r"
+expect "#"
+send "echo 'Running: ./sroms_base.riscv-64 < ocean_benchmark3.in'\r"
+expect "# "
+send "./sroms_base.riscv-64 < ocean_benchmark3.in\r"
+
+# 5. Wait for 10 seconds while the program runs
+
+expect "UV_ADV              Advection of momentum."
+
+# 6. NOW the app is definitely running. Start the timer.
+send_user "\n--- Benchmark detected running. Waiting 30 seconds... ---\n"
+sleep 10
+
+# 6. Terminate by sending Ctrl+C (ASCII code \003)
+send "\003"
+
+expect {
+    ": " {
+        send "q\r"
+        exp_continue
+    }
+    eof
+}
